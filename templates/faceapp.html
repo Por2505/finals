@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block bodyblock %}
+    <div class="container">
+        <br>
+        <h3 class="content">Face Recognition Application</h3>
+
+        <br>
+        <!--<img src="{{ url_for('static',filename='images/002.PNG') }}" alt="" width="600" height="230">-->
+        <br>
+        <div align="center">
+            <a class="btn btn-outline-primary" href="{{ url_for('faces') }}">Try it now</a> 
+        </div>
+       
+    </div>
+
+
+{% endblock  %}
