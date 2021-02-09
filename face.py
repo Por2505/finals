@@ -11,7 +11,24 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import SVC
 import glob
+import gspread
+import pandas as pd
+from oauth2client.service_account import ServiceAccountCredentials
 
+
+# define the scope
+scope = ['https://www.googleapis.com/auth/drive']
+
+# add credentials to the account
+creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+
+# authorize the clientsheet 
+client = gspread.authorize(creds)
+
+# get the instance of the Spreadsheet
+sheet = client.open('Class Attendance')
+
+df = pd.read_csv('score.csv')
 
 def extract_face(filename, required_size=(160, 160)):
     image = Image.open(filename)
@@ -75,10 +92,27 @@ def facenett(path,filename):
         print(predict_name[i])
         predict_name = out_encoder.inverse_transform(yhat_test)
         df.at[yhat_test[i],'score'] = 1
-    writer = pd.ExcelWriter('pandas_simple.xlsx', engine='xlsxwriter')
+    writer = pd.ExcelWriter('book.xlsx', engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1')
     writer.save()
     return predict_name
+
+def detect():
+    data = list()
+    for i in glob.glob('data/*.jpg', recursive=True):
+        data.append(cv2.imread(i))
+    emdTestX = list()
+    for face in data:
+        emd = get_embedding(facenet_model, face)
+        emdTestX.append(emd)
+    emdTestX = np.asarray(emdTestX)
+    emdTestX_norm = in_encoder.transform(emdTestX)
+    yhat_test = model.predict(emdTestX_norm)
+    print(yhat_test)
+    predict_name = out_encoder.inverse_transform(yhat_test)
+    print(predict_name)
+    return yhat_test
+
 
 def facevideo():
     data = list()
@@ -94,14 +128,40 @@ def facevideo():
     print(yhat_test)
     predict_name = out_encoder.inverse_transform(yhat_test)
     print(predict_name)
+   
+    worksheet = sheet.get_worksheet(0)
+    for i in range(len(yhat_test)):
+        predict_name = out_encoder.inverse_transform(yhat_test)
+        df.at[yhat_test[i],'score'] = 1
+        worksheet.update_cell(yhat_test[i]+2,4,'1')
+    writer = pd.ExcelWriter('book.xlsx', engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1')
+    writer.save()
+   
+    
+
+def facevideo2(x):
+    data = list()
+    data.append(cv2.imread('data/img_',x,'.jpg'))
+    emdTestX = list()
+    emd = get_embedding(facenet_model, data)
+    emdTestX.append(emd)
+    emdTestX = np.asarray(emdTestX)
+    emdTestX_norm = in_encoder.transform(emdTestX)
+    yhat_test = model.predict(emdTestX_norm)
+    print(yhat_test)
+    predict_name = out_encoder.inverse_transform(yhat_test)
+    print(predict_name)
+    
+    
     for i in range(len(yhat_test)):
         print(yhat_test[i])
         predict_name = out_encoder.inverse_transform(yhat_test)
-        df.at[yhat_test[i],'score'] = 1
-    writer = pd.ExcelWriter('pandas_simple.xlsx', engine='xlsxwriter')
+        df.at[yhat_test[i],'score'] = 1 
+    writer = pd.ExcelWriter('book.xlsx', engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1')
-    writer.save()
-    
+  
+
 
 data = np.load('faces-dataset.npz')
 trainX, trainy, testX, testy = data['arr_0'], data['arr_1'], data['arr_2'], data['arr_3']
@@ -121,7 +181,6 @@ yhat_train = model.predict(emdTrainX_norm)
 yhat_test = model.predict(emdTestX_norm)
 score_train = accuracy_score(trainy_enc, yhat_train)
 score_test = accuracy_score(testy_enc, yhat_test)
-df = pd.read_csv('score.csv')
 
 
 

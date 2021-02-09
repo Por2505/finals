@@ -1,5 +1,5 @@
 import views
-from flask import Flask, Response
+from flask import Flask, Response , send_file
 from flask import render_template, request
 from PIL import Image, ImageDraw
 import os
@@ -15,12 +15,14 @@ from wtforms.validators import InputRequired, Email, Length
 from flask_sqlalchemy  import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-
+from face import facenett
+from face import facevideo
+from face import detect
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = 'Thisissupposedtobesecret!'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///C:\\Users\\Por\\Desktop\\proj\\database.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///C:\\Users\\Por\\Desktop\\psu\\proj\\database.db'
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -41,14 +43,25 @@ app.add_url_rule('/faceapp','faceapp',views.faceapp)
 app.add_url_rule('/faces','faces',views.faces,methods=['GET','POST'])
 
 
-@app.route('/detect')
-def detect():
-    return render_template('detect.html')
-def detect():
+@app.route('/download_file')
+def download_file():
+    p = "book.xlsx"
+    return send_file(p,as_attachment=True)
+
+@app.route('/showlist')
+def showlist():
+   return render_template('book2.html')
+                    
+@app.route('/dataset')
+def dataset():
+    return render_template('dataset.html')
+def dataset():
     cap = cv2.VideoCapture(0)
     detector = MTCNN()
     img_id = 0
+    count = 0
     while(True):
+        
         ret, frame = cap.read()
         if not ret:
             frame = cv2.VideoCapture(0)
@@ -56,31 +69,94 @@ def detect():
         
         if ret:
             frame = np.asarray(frame)
-            try:
-                results = detector.detect_faces(frame)
-                for i in range(len(results)):
-                    x1, y1, width, height = results[i]['box']
-                    x1, y1 = abs(x1), abs(y1)
-                    x2, y2 = x1 + width, y1 + height
-                    frame = cv2.rectangle(frame,(x1,y1),(x2,y2),(0,255,0),2)
-                    pixels = np.asarray(frame)
-                    face = pixels[y1:y2, x1:x2]
-                    image = Image.fromarray(face)
-                    image = image.resize((160,160))
-                    face_array = np.asarray(image)
-                    cv2.imwrite('./data/img_{}.jpg'.format(i),face_array)
-                    facevideo()
-                
+            count = count + 1
+            if count == 5 :
+                print(count)
+                try:
+                    results = detector.detect_faces(frame)
+                    count = 0
+                    for i in range(len(results)):
+                        x1, y1, width, height = results[i]['box']
+                        x1, y1 = abs(x1), abs(y1)
+                        x2, y2 = x1 + width, y1 + height
+                        frame = cv2.rectangle(frame,(x1,y1),(x2,y2),(0,255,0),2)
+                        pixels = np.asarray(frame)
+                        face = pixels[y1:y2, x1:x2]
+                        image = Image.fromarray(face)
+                        image = image.resize((160,160))
+                        face_array = np.asarray(image)
+                        #cv2.imwrite('./datas/train/Ketsiree/img_{}.jpg'.format(img_id),frame)  
+                        # img_id +=1
                
                 
-            except:
-                print("Something else went wrong")
+                except:
+                    print("Something else went wrong")
         frame = cv2.imencode('.jpg', frame)[1].tobytes()
         yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+        # time.sleep(0.1)
+        
+@app.route('/dataset_feed')
+def dataset_feed():
+    global video
+    return Response(dataset(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+
+
+@app.route('/detect')
+def detect():
+    return render_template('detect.html')
+def detect():
+    cap = cv2.VideoCapture('test4.mp4')
+    detector = MTCNN()
+    count = 0
+    img_id = 0
+    while(True):
+        ret, frame = cap.read()
+        if not ret:
+            frame = cv2.VideoCapture('test.4mp4')
+            continue
+        
+        if ret:
+            frame = np.asarray(frame)
+            count = count+1
+            if count == 10 :
+
+                try:
+                    results = detector.detect_faces(frame)
+                    print(len(results))
+                    count = 0
+                    img_id = 0
+                    for i in range(len(results)):
+                        x1, y1, width, height = results[i]['box']
+                        x1, y1 = abs(x1), abs(y1)
+                        x2, y2 = x1 + width, y1 + height
+                        # frame1 = cv2.rectangle(frame,(x1,y1),(x2,y2),(0,255,0),2)
+                        pixels = np.asarray(frame)
+                        face = pixels[y1:y2, x1:x2]
+                        image = Image.fromarray(face)
+                        image = image.resize((160,160))
+                        face_array = np.asarray(image)
+                       
+                        cv2.imwrite('./data/img_{}.jpg'.format(i),face_array)
+                    facevideo()
+                    folder_path = (r'C:\Users\Por\Desktop\proj\data')
+                    test = os.listdir(folder_path)
+                    for images in test:
+                        if images.endswith(".jpg"):
+                            os.remove(os.path.join(folder_path, images))
+                        
+                                
+                except:
+                    print("Something else went wrong")
+        
+
+        frame = cv2.imencode('.jpg', frame)[1].tobytes()
+        yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+        
         time.sleep(0.1)
-        #key = cv2.waitKey(20)
-        if(cv2.waitKey(1) & 0xFF == ord('q')):
-            break
+        
         
 @app.route('/detect_feed')
 def detect_feed():
